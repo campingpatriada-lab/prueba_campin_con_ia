@@ -1,9 +1,38 @@
 import { createClient } from "@libsql/client";
 import { hashSync } from "bcryptjs";
+import fs from "fs";
+import path from "path";
+
+function loadEnv() {
+  try {
+    const dotenvPath = path.join(process.cwd(), ".env");
+    if (fs.existsSync(dotenvPath)) {
+      const content = fs.readFileSync(dotenvPath, "utf8");
+      for (const line of content.split(/\r?\n/)) {
+        const match = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/);
+        if (match) {
+          const key = match[1];
+          let value = match[2];
+          if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+            value = value.slice(1, -1);
+          }
+          if (!process.env[key]) process.env[key] = value;
+        }
+      }
+    }
+  } catch {
+    // ignore
+  }
+}
+
+loadEnv();
+
+const url = process.env.URL_TURSO_DB || process.env.TURSO_DATABASE_URL;
+const token = process.env.TOKEN_TURSO_DB || process.env.TURSO_AUTH_TOKEN;
 
 const client = createClient({
-  url: process.env.URL_TURSO_DB,
-  authToken: process.env.TOKEN_TURSO_DB,
+  url,
+  authToken: token,
 });
 
 async function main() {
@@ -77,6 +106,7 @@ async function main() {
   `);
   console.log("[setup-db] Table 'ingreso' OK.");
 
+
   // Verify tables exist
   const tables = await client.execute(
     "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
@@ -85,12 +115,60 @@ async function main() {
     "[setup-db] Existing tables:",
     tables.rows.map((r) => r.name)
   );
+  console.log("[setup-db] Creating table 'fogon'...");
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS fogon (
+      id_fogon INTEGER PRIMARY KEY,
+      numero_fogon INTEGER,
+      estado INTEGER DEFAULT 0
+    )
+  `);
+  console.log("[setup-db] Table 'fogon' OK.");
 
-  // 5. Seed admin user "facundo" with password "159357"
+  console.log("[setup-db] Creating table 'servicios'...");
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS servicios (
+      id_servicio INTEGER PRIMARY KEY,
+      nombre_servicio TEXT
+    )
+  `);
+  console.log("[setup-db] Table 'servicios' OK.");
+
+  console.log("[setup-db] Creating table 'servicios_fogones'...");
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS servicios_fogones (
+      id_servicio_fogones INTEGER PRIMARY KEY,
+      id_fogon INTEGER,
+      id_servicio INTEGER
+    )
+  `);
+  console.log("[setup-db] Table 'servicios_fogones' OK.");
+
+  console.log("[setup-db] Seeding 'servicios'...");
+  await client.execute(`
+    INSERT INTO servicios (nombre_servicio) VALUES
+    ('agua'),
+    ('luz'),
+    ('parrilla'),
+    ('internet')
+  `);
+  console.log("[setup-db] Seed 'servicios' OK.");
+
+  console.log("[setup-db] Checking column 'id_fogon' in 'estadia'...");
+  const info = await client.execute(`PRAGMA table_info(estadia)`);
+  const hasIdFogon = info.rows.some((r) => r.name === "id_fogon");
+  if (!hasIdFogon) {
+    await client.execute(`PRAGMA foreign_keys = ON`);
+    await client.execute(`ALTER TABLE estadia ADD COLUMN id_fogon INTEGER REFERENCES fogon(id_fogon)`);
+    console.log("[setup-db] Column 'id_fogon' added to 'estadia'.");
+  } else {
+    console.log("[setup-db] Column 'id_fogon' already exists.");
+  }
+
+
   console.log("[setup-db] Checking if admin user 'facundo' exists...");
   const existing = await client.execute({
     sql: "SELECT id_empleado FROM empleado WHERE nombre = ?",
-    args: ["facundo"],
   });
 
   if (existing.rows.length > 0) {

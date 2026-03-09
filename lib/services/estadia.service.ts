@@ -1,6 +1,7 @@
 import * as estadiaRepo from "@/lib/repositories/estadia.repository";
 import { crearIngreso, obtenerIngresosPorEstadia, obtenerIngresosPorEstadias } from "@/lib/repositories/ingreso.repository";
 import { obtenerEstadiasConIncidencia } from "@/lib/repositories/incidencia.repository";
+import { ocuparFogonPorId, liberarFogonPorId } from "@/lib/repositories/fogon.repository";
 
 export interface PagoDetalle {
   id_ingreso?: number;
@@ -174,6 +175,12 @@ export async function crearEstadiaServicio(estadia: Omit<estadiaRepo.EstadiaDB, 
   // Llamada al repositorio
   const creada = await estadiaRepo.crearEstadia(estadia);
 
+  if (creada.id_fogon != null) {
+    try {
+      await ocuparFogonPorId(Number(creada.id_fogon));
+    } catch {}
+  }
+
   return {
     ...creada,
     estado_pago: (creada.ingreso_monto != null && Number(creada.ingreso_monto) > 0) ? "Abonado" : "No abonado",
@@ -210,13 +217,29 @@ export async function editarEstadiaServicio(
     throw new Error("ID de estadía requerido");
   }
 
+  const antes = await estadiaRepo.obtenerEstadiaPorId(id_estadia);
+  const fogonAnterior = antes?.id_fogon ?? null;
+
   const ok = await estadiaRepo.editarEstadia(id_estadia, datos);
   if (!ok) {
     throw new Error("No se pudo editar la estadía");
   }
 
-  // Retornar la estadía actualizada
-  return await estadiaRepo.obtenerEstadiaPorId(id_estadia);
+  const despues = await estadiaRepo.obtenerEstadiaPorId(id_estadia);
+
+  if (datos.id_fogon !== undefined) {
+    const fogonNuevo = despues?.id_fogon ?? null;
+    if (fogonNuevo !== fogonAnterior) {
+      if (fogonAnterior != null) {
+        try { await liberarFogonPorId(Number(fogonAnterior)); } catch {}
+      }
+      if (fogonNuevo != null) {
+        try { await ocuparFogonPorId(Number(fogonNuevo)); } catch {}
+      }
+    }
+  }
+
+  return despues;
 }
 
 export async function obtenerEstadiasPorMesServicio(

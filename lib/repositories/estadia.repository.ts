@@ -26,6 +26,7 @@ export interface EstadiaDB {
   observaciones: string | null;
 
   id_empleado: number;
+  id_fogon?: number | null;
   nombre_empleado?: string | null;
   ingreso_monto?: number | null;
   hora_ingreso?: string | null;
@@ -56,6 +57,7 @@ function mapRowToEstadia(row: any): EstadiaDB {
       ? String(row.observaciones)
       : null,
     id_empleado: Number(row.id_empleado),
+    id_fogon: row.id_fogon != null ? Number(row.id_fogon) : null,
     nombre_empleado: row.nombre_empleado
       ? String(row.nombre_empleado)
       : null,
@@ -291,10 +293,11 @@ export async function crearEstadia(
           dni_responsable,
           tipo_estadia,
           observaciones,
+          id_fogon,
           id_empleado,
           estado,
           hora_ingreso
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
       `,
       args: [
         estadia.patente
@@ -308,6 +311,7 @@ export async function crearEstadia(
         estadia.dni_responsable ?? null,
         estadia.tipo_estadia ?? null,
         estadia.observaciones ?? null,
+        estadia.id_fogon ?? null,
         estadia.id_empleado,
         horaIngreso,
       ],
@@ -422,6 +426,10 @@ export async function editarEstadia(
     if (datos.estado !== undefined) {
       campos.push("estado = ?");
       valores.push(datos.estado);
+    }
+    if (datos.id_fogon !== undefined) {
+      campos.push("id_fogon = ?");
+      valores.push(datos.id_fogon ?? null);
     }
 
     if (campos.length === 0) return false;
@@ -540,6 +548,5 @@ export async function obtenerEstadiasPorMes(
     throw new Error("Error de base de datos");
   }
 }
-
 
 

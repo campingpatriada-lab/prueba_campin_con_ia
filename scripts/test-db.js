@@ -1,7 +1,33 @@
 import { createClient } from "@libsql/client";
+import fs from "fs";
+import path from "path";
 
-const url = process.env.URL_TURSO_DB;
-const token = process.env.TOKEN_TURSO_DB;
+function loadEnv() {
+  try {
+    const dotenvPath = path.join(process.cwd(), ".env");
+    if (fs.existsSync(dotenvPath)) {
+      const content = fs.readFileSync(dotenvPath, "utf8");
+      for (const line of content.split(/\r?\n/)) {
+        const match = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/);
+        if (match) {
+          const key = match[1];
+          let value = match[2];
+          if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+            value = value.slice(1, -1);
+          }
+          if (!process.env[key]) process.env[key] = value;
+        }
+      }
+    }
+  } catch {
+    // ignore
+  }
+}
+
+loadEnv();
+
+const url = process.env.URL_TURSO_DB || process.env.TURSO_DATABASE_URL;
+const token = process.env.TOKEN_TURSO_DB || process.env.TURSO_AUTH_TOKEN;
 
 console.log("=== Test de conexion a Turso DB ===\n");
 console.log("URL_TURSO_DB:", url ? `${url.substring(0, 30)}...` : "NO DEFINIDA");
@@ -28,7 +54,7 @@ async function test() {
     tablas.rows.forEach((r) => console.log("   -", r.name));
 
     // 3. Contar registros por tabla
-    const tablasEsperadas = ["app_config", "empleado", "estadia", "ingreso"];
+    const tablasEsperadas = ["app_config", "empleado", "estadia", "ingreso", "fogon", "servicios", "servicios_fogones"];
     console.log("\n3) Conteo de registros:");
     for (const tabla of tablasEsperadas) {
       try {

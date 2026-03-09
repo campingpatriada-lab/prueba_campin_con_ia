@@ -4,6 +4,7 @@ import {
   obtenerEstadiasActivasServicio,
   crearEstadiaConAbonoServicio,
 } from "@/lib/services/estadia.service"
+import { idFogonPorNumero } from "@/lib/services/fogon.service"
 
 // GET: Obtener estadias activas (reemplaza la API externa)
 export async function GET() {
@@ -50,6 +51,7 @@ export async function POST(request: Request) {
         tipo_estadia: body.tipoEstadia || body.tipo_estadia || null,
         cantidad_menores: body.cantidadMenores != null ? Number(body.cantidadMenores) : (body.cantidad_menores != null ? Number(body.cantidad_menores) : null),
         observaciones: body.observaciones || null,
+        id_fogon: (body.numero_fogon != null ? await idFogonPorNumero(Number(body.numero_fogon)) : null),
         id_empleado: sesion.id_empleado,
       },
       pagos

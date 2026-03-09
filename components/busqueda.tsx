@@ -37,6 +37,7 @@ import {
   TriangleAlert,
   Mic,
   MicOff,
+  Hash,
 } from "lucide-react"
 import { cn, fechaHoyArgentina } from "@/lib/utils"
 
@@ -68,6 +69,7 @@ interface Estadia {
   total_abonado: number
   hora_ingreso?: string | null
   tiene_incidencia?: boolean
+  id_fogon?: number | null
 }
 
 function calcularCantidadDias(estadia: Estadia): string {
@@ -105,7 +107,7 @@ export function Busqueda() {
   const [searched, setSearched] = useState(false)
 
   // Voz
-  const voiceRef = useRef<InstanceType<typeof window.SpeechRecognition> | null>(null)
+  const voiceRef = useRef<any | null>(null)
   const [isListening, setIsListening] = useState(false)
   const [voiceError, setVoiceError] = useState<string | null>(null)
 
@@ -129,8 +131,8 @@ export function Busqueda() {
     }
 
     const AudioInput =
-      (window as typeof window & { SpeechRecognition?: typeof SpeechRecognition; webkitSpeechRecognition?: typeof SpeechRecognition }).SpeechRecognition ||
-      (window as typeof window & { webkitSpeechRecognition?: typeof SpeechRecognition }).webkitSpeechRecognition
+      (window as any).SpeechRecognition ||
+      (window as any).webkitSpeechRecognition
 
     if (!AudioInput) {
       setVoiceError("Tu navegador no soporta reconocimiento de voz.")
@@ -144,7 +146,7 @@ export function Busqueda() {
     recognition.maxAlternatives = 3
     recognition.continuous = true
 
-    recognition.onresult = (event: SpeechRecognitionEvent) => {
+    recognition.onresult = (event: any) => {
       for (let i = event.resultIndex; i < event.results.length; i++) {
         if (event.results[i].isFinal) {
           const raw = event.results[i][0].transcript.trim()
@@ -159,7 +161,7 @@ export function Busqueda() {
       }
     }
 
-    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+    recognition.onerror = (event: any) => {
       if (event.error !== "aborted") {
         setVoiceError("No se pudo reconocer la voz. Intente nuevamente.")
       }
@@ -427,6 +429,11 @@ function ResultadoCard({ resultado, onUpdated }: { resultado: Estadia; onUpdated
     tipo_estadia: resultado.tipo_estadia || "",
     estado: String(resultado.estado),
   })
+  const [fogonInfo, setFogonInfo] = useState<{ numero?: number; ocupado?: boolean; servicios?: string[] } | null>(null)
+  const [fogonSelectorOpen, setFogonSelectorOpen] = useState(false)
+  const [fogonesLista, setFogonesLista] = useState<{ numero: number; ocupado: boolean; servicios: string[] }[]>([])
+  const [editIdFogon, setEditIdFogon] = useState<number | null>(resultado.id_fogon ?? null)
+  const [editNumeroFogon, setEditNumeroFogon] = useState<string>(fogonInfo?.numero != null ? String(fogonInfo.numero) : "")
 
   // Estado local para editar pagos individuales
   const [editPagos, setEditPagos] = useState<{ id_ingreso?: number; tipo: string; monto: string }[]>(
@@ -443,6 +450,26 @@ function ResultadoCard({ resultado, onUpdated }: { resultado: Estadia; onUpdated
   const isAcampe = tipoEstadia === "acampe"
   const isDia = tipoEstadia === "dia"
   const cantidadDias = calcularCantidadDias(resultado)
+
+  React.useEffect(() => {
+    ;(async () => {
+      if (resultado.id_fogon != null) {
+        try {
+          const res = await fetch(`/api/fogones/by-id?id=${encodeURIComponent(resultado.id_fogon)}`)
+          const data = await res.json()
+          if (data.success) {
+            setFogonInfo({
+              numero: Number(data.numero_fogon),
+              ocupado: Number(data.estado) === 1,
+              servicios: Array.isArray(data.servicios) ? data.servicios : [],
+            })
+          }
+        } catch {}
+      } else {
+        setFogonInfo(null)
+      }
+    })()
+  }, [resultado.id_fogon])
 
   const handleSave = async () => {
     setSaving(true)
@@ -463,6 +490,7 @@ function ResultadoCard({ resultado, onUpdated }: { resultado: Estadia; onUpdated
             fecha_salida: editData.fecha_salida || null,
             tipo_estadia: editData.tipo_estadia || null,
             estado: Number(editData.estado),
+            id_fogon: editIdFogon ?? null,
           },
         }),
       })
@@ -582,6 +610,84 @@ function ResultadoCard({ resultado, onUpdated }: { resultado: Estadia; onUpdated
               <label className="text-xs text-muted-foreground mb-1 block">Salida</label>
               <Input type="date" value={editData.fecha_salida} onChange={(e) => setEditData({ ...editData, fecha_salida: e.target.value })} className="bg-secondary/50 text-sm" />
             </div>
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">Fogon</label>
+            <div className="flex items-center gap-2">
+              <Input
+                value={editNumeroFogon}
+                onChange={(e) => setEditNumeroFogon(e.target.value)}
+                className="bg-secondary/50 text-sm"
+                placeholder="Ej: 12"
+                inputMode="numeric"
+              />
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={async () => {
+                  if (!fogonSelectorOpen) {
+                    try {
+                      const res = await fetch("/api/fogones/list")
+                      const data = await res.json()
+                      if (data.success) {
+                        setFogonesLista(
+                          data.fogones.map((f: any) => ({
+                            numero: Number(f.numero_fogon),
+                            ocupado: Number(f.estado) === 1,
+                            servicios: Array.isArray(f.servicios) ? f.servicios : [],
+                          }))
+                        )
+                      }
+                    } catch {}
+                  }
+                  setFogonSelectorOpen(!fogonSelectorOpen)
+                }}
+              >
+                seleccionar fogon
+              </Button>
+            </div>
+            {fogonSelectorOpen && fogonesLista.length > 0 && (
+              <div className="mt-2 grid grid-cols-4 gap-2">
+                {fogonesLista.map((f) => (
+                  <button
+                    key={f.numero}
+                    type="button"
+                    onClick={async () => {
+                      setEditNumeroFogon(String(f.numero))
+                      try {
+                        const res = await fetch("/api/fogones", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ numero: f.numero }),
+                        })
+                        const data = await res.json()
+                        if (data.success && data.id_fogon != null) {
+                          setEditIdFogon(Number(data.id_fogon))
+                        }
+                      } catch {}
+                      setFogonSelectorOpen(false)
+                    }}
+                    className={cn(
+                      "w-full text-xs rounded-md border px-2 py-2 text-left transition-colors",
+                      f.ocupado
+                        ? "bg-amber-600/15 border-amber-600/30 text-amber-700"
+                        : "bg-emerald-500/15 border-emerald-500/30 text-emerald-700 hover:bg-emerald-500/20"
+                    )}
+                    title={f.ocupado ? `Fogon ${f.numero} ocupado` : `Fogon ${f.numero} disponible`}
+                  >
+                    <div className="font-medium">#{f.numero}</div>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {f.servicios.map((s, i) => (
+                        <span key={i} className="px-1 py-0.5 rounded border bg-background/60">
+                          {abreviarServicio(s)}
+                        </span>
+                      ))}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           <div>
             <div className="flex items-center justify-between mb-1">
@@ -741,6 +847,16 @@ function ResultadoCard({ resultado, onUpdated }: { resultado: Estadia; onUpdated
       <div className="p-4">
         <div className="grid grid-cols-1 gap-3">
           <div className="grid grid-cols-2 gap-3">
+            <DataRow icon={<Hash className="w-4 h-4" />} label="Fogon" value={fogonInfo?.numero != null ? `#${fogonInfo.numero}` : "---"} highlight />
+            <div className="flex items-center gap-1 flex-wrap">
+              {(fogonInfo?.servicios || []).map((s, i) => (
+                <span key={i} className="text-[10px] px-1.5 py-0.5 rounded-md border bg-muted text-muted-foreground" title={s}>
+                  {abreviarServicio(s)}
+                </span>
+              ))}
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
             <DataRow icon={<User className="w-4 h-4" />} label="Nombre" value={resultado.nombre_responsable || "---"} />
             <DataRow icon={<User className="w-4 h-4" />} label="DNI" value={resultado.dni_responsable || "---"} />
           </div>
@@ -786,4 +902,13 @@ function DataRow({ icon, label, value, highlight = false }: { icon: React.ReactN
       <span className={cn("text-sm font-medium text-foreground pl-6", highlight && "font-mono")}>{value}</span>
     </div>
   )
+}
+
+function abreviarServicio(nombre: string) {
+  const n = nombre.toLowerCase()
+  if (n === "agua") return "AG"
+  if (n === "luz") return "LZ"
+  if (n === "parrilla") return "PR"
+  if (n === "internet") return "IN"
+  return n.slice(0, 2).toUpperCase()
 }

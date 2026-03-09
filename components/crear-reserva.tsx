@@ -33,6 +33,7 @@ interface FormData {
   fechaSalida: string
   nombre: string
   observaciones: string
+  numeroFogon?: string
 }
 
 export function CrearReserva() {
@@ -86,7 +87,7 @@ export function CrearReserva() {
   const [detectError, setDetectError] = useState<string | null>(null)
 
   // Estado y ref para reconocimiento de voz de la patente
-  const recognitionRef = useRef<InstanceType<typeof window.SpeechRecognition> | null>(null)
+  const recognitionRef = useRef<any>(null)
   const [isListening, setIsListening] = useState(false)
   const [voiceError, setVoiceError] = useState<string | null>(null)
 
@@ -102,6 +103,9 @@ export function CrearReserva() {
       .replace(/BE/g, "B")
       .replace(/VE/g, "V")
       .replace(/CE/g, "C")
+      .replace(/BE/g, "B")
+      .replace(/VE/g, "V")
+      
   }
 
   const toggleVoiceRecognition = () => {
@@ -113,8 +117,8 @@ export function CrearReserva() {
     }
 
     const AudioInput =
-      (window as typeof window & { SpeechRecognition?: typeof SpeechRecognition; webkitSpeechRecognition?: typeof SpeechRecognition }).SpeechRecognition ||
-      (window as typeof window & { webkitSpeechRecognition?: typeof SpeechRecognition }).webkitSpeechRecognition
+      (window as any).SpeechRecognition ||
+      (window as any).webkitSpeechRecognition
 
     if (!AudioInput) {
       setVoiceError("Tu navegador no soporta reconocimiento de voz.")
@@ -130,7 +134,7 @@ export function CrearReserva() {
     recognition.maxAlternatives = 3
     recognition.continuous = true
 
-    recognition.onresult = (event: SpeechRecognitionEvent) => {
+    recognition.onresult = (event: any) => {
       for (let i = event.resultIndex; i < event.results.length; i++) {
         if (event.results[i].isFinal) {
           const transcript = event.results[i][0].transcript
@@ -150,7 +154,7 @@ export function CrearReserva() {
       }
     }
 
-    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+    recognition.onerror = (event: any) => {
       if (event.error !== "aborted") {
         setVoiceError("No se pudo reconocer la voz. Intente nuevamente.")
       }
@@ -206,6 +210,88 @@ export function CrearReserva() {
         // Silencioso - no interrumpir el flujo
       }
     }, 500)
+  }
+
+  // Fogones disponibles y validacion
+  const [fogonesDisponibles, setFogonesDisponibles] = useState<number[]>([])
+  const [fogonMensaje, setFogonMensaje] = useState<string | null>(null)
+  const [fogonEstado, setFogonEstado] = useState<"ok" | "ocupado" | "noexiste" | null>(null)
+  const [fogonSelectorOpen, setFogonSelectorOpen] = useState(false)
+  const [fogonesLista, setFogonesLista] = useState<{ numero: number; ocupado: boolean; servicios: string[] }[]>([])
+
+  React.useEffect(() => {
+    ;(async () => {
+      try {
+        const res = await fetch("/api/fogones", { method: "GET" })
+        const data = await res.json()
+        if (data.success && Array.isArray(data.disponibles)) {
+          setFogonesDisponibles(data.disponibles)
+        }
+      } catch {
+        // silencioso
+      }
+    })()
+  }, [])
+
+  const validarFogon = async (numero: string) => {
+    const n = Number(numero)
+    if (!numero || Number.isNaN(n)) {
+      setFogonMensaje(null)
+      setFogonEstado(null)
+      return
+    }
+    try {
+      const res = await fetch("/api/fogones", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ numero: n }),
+      })
+      const data = await res.json()
+      if (!data.success) {
+        setFogonMensaje(null)
+        setFogonEstado(null)
+        return
+      }
+      if (!data.existe) {
+        setFogonEstado("noexiste")
+        setFogonMensaje("El fogon no existe")
+      } else if (data.ocupado) {
+        const salida = data.fecha_salida ? String(data.fecha_salida) : "sin fecha de salida"
+        setFogonEstado("ocupado")
+        setFogonMensaje(`Este fogon esta ocupado. Fecha de salida: ${salida}`)
+      } else {
+        setFogonEstado("ok")
+        setFogonMensaje(null)
+      }
+    } catch {
+      setFogonMensaje(null)
+      setFogonEstado(null)
+    }
+  }
+
+  const abreviarServicio = (nombre: string) => {
+    const n = nombre.toLowerCase()
+    if (n === "agua") return "AG"
+    if (n === "luz") return "LZ"
+    if (n === "parrilla") return "PR"
+    if (n === "internet") return "IN"
+    return n.slice(0, 2).toUpperCase()
+  }
+
+  const cargarFogonesLista = async () => {
+    try {
+      const res = await fetch("/api/fogones/list")
+      const data = await res.json()
+      if (data.success && Array.isArray(data.fogones)) {
+        setFogonesLista(
+          data.fogones.map((f: any) => ({
+            numero: Number(f.numero_fogon),
+            ocupado: Number(f.estado) === 1,
+            servicios: Array.isArray(f.servicios) ? f.servicios : [],
+          }))
+        )
+      }
+    } catch {}
   }
 
   const handleCameraCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -336,6 +422,10 @@ export function CrearReserva() {
         }))
       }
       if (formData.observaciones) body.observaciones = formData.observaciones
+      if (formData.numeroFogon) {
+        const n = parseInt(formData.numeroFogon)
+        if (!Number.isNaN(n)) body.numero_fogon = n
+      }
 
       const res = await fetch("/api/reservas", {
         method: "POST",
@@ -362,6 +452,7 @@ export function CrearReserva() {
           fechaSalida: "",
           nombre: "",
           observaciones: "",
+          numeroFogon: "",
         })
         setPagos([])
       } else {
@@ -636,6 +727,114 @@ export function CrearReserva() {
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* Numero de Fogon (opcional) */}
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="numeroFogon" className="text-sm text-foreground">
+                Numero de Fogon
+              </Label>
+              <div className="flex gap-2 items-center">
+                <Input
+                  id="numeroFogon"
+                  value={formData.numeroFogon || ""}
+                  onChange={(e) => {
+                    handleChange("numeroFogon", e.target.value)
+                  }}
+                  onBlur={(e) => validarFogon(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault()
+                      validarFogon(formData.numeroFogon || "")
+                      fechaEntradaRef.current?.focus()
+                    }
+                  }}
+                  placeholder="Ej: 12"
+                  className="bg-muted border-border flex-1"
+                  inputMode="numeric"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="shrink-0 h-9"
+                  onClick={async () => {
+                    if (!fogonSelectorOpen) await cargarFogonesLista()
+                    setFogonSelectorOpen(!fogonSelectorOpen)
+                  }}
+                >
+                  seleccionar fogon
+                </Button>
+              </div>
+              {formData.numeroFogon && (
+                <div className="mt-1 flex items-center gap-2 text-xs">
+                  <span className="px-2 py-1 rounded-md border bg-muted text-foreground">
+                    #{formData.numeroFogon}
+                  </span>
+                  {fogonesLista
+                    .find((f) => String(f.numero) === String(formData.numeroFogon))
+                    ?.servicios.map((s, i) => (
+                      <span
+                        key={i}
+                        className="px-1.5 py-0.5 rounded-md border text-muted-foreground"
+                        title={s}
+                      >
+                        {abreviarServicio(s)}
+                      </span>
+                    ))}
+                </div>
+              )}
+              {fogonSelectorOpen && fogonesLista.length > 0 && (
+                <div className="mt-2 grid grid-cols-4 gap-2">
+                  {fogonesLista.map((f) => (
+                    <button
+                      key={f.numero}
+                      type="button"
+                      onClick={() => {
+                        const val = String(f.numero)
+                        handleChange("numeroFogon", val)
+                        validarFogon(val)
+                        setFogonSelectorOpen(false)
+                        setTimeout(() => fechaEntradaRef.current?.focus(), 100)
+                      }}
+                      className={cn(
+                        "w-full text-xs rounded-md border px-2 py-2 text-left transition-colors",
+                        f.ocupado
+                          ? "bg-amber-600/15 border-amber-600/30 text-amber-700"
+                          : "bg-emerald-500/15 border-emerald-500/30 text-emerald-700 hover:bg-emerald-500/20"
+                      )}
+                      title={
+                        f.ocupado
+                          ? `Fogon ${f.numero} ocupado`
+                          : `Fogon ${f.numero} disponible`
+                      }
+                    >
+                      <div className="font-medium">#{f.numero}</div>
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {f.servicios.map((s, i) => (
+                          <span key={i} className="px-1 py-0.5 rounded border bg-background/60">
+                            {abreviarServicio(s)}
+                          </span>
+                        ))}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {/* Visual de fogones disponibles */}
+              {fogonEstado && fogonMensaje && (
+                <div
+                  className={cn(
+                    "mt-1 text-xs p-2 rounded-md border",
+                    fogonEstado === "ocupado"
+                      ? "bg-destructive/10 border-destructive/30 text-destructive"
+                      : fogonEstado === "noexiste"
+                      ? "bg-warning/10 border-warning/30 text-warning"
+                      : "bg-primary/10 border-primary/30 text-primary"
+                  )}
+                >
+                  {fogonMensaje}
+                </div>
+              )}
             </div>
 
             <div className="flex flex-col gap-1">

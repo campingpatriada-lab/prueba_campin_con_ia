@@ -166,7 +166,7 @@ export function ScannerApp({ onLogout }: ScannerAppProps) {
   const fileInputRef = React.useRef<HTMLInputElement>(null)
 
   // Estado para busqueda por voz
-  const voiceRecognitionRef = useRef<InstanceType<typeof window.SpeechRecognition> | null>(null)
+  const voiceRecognitionRef = useRef<any | null>(null)
   const [isVoiceListening, setIsVoiceListening] = useState(false)
   const [voiceError, setVoiceError] = useState<string | null>(null)
 
@@ -243,8 +243,8 @@ export function ScannerApp({ onLogout }: ScannerAppProps) {
     }
 
     const AudioInput =
-      (window as typeof window & { SpeechRecognition?: typeof SpeechRecognition; webkitSpeechRecognition?: typeof SpeechRecognition }).SpeechRecognition ||
-      (window as typeof window & { webkitSpeechRecognition?: typeof SpeechRecognition }).webkitSpeechRecognition
+      (window as any).SpeechRecognition ||
+      (window as any).webkitSpeechRecognition
 
     if (!AudioInput) {
       setVoiceError("Tu navegador no soporta reconocimiento de voz.")
@@ -259,7 +259,7 @@ export function ScannerApp({ onLogout }: ScannerAppProps) {
     recognition.maxAlternatives = 3
     recognition.continuous = true
 
-    recognition.onresult = (event: SpeechRecognitionEvent) => {
+    recognition.onresult = (event: any) => {
       for (let i = event.resultIndex; i < event.results.length; i++) {
         if (event.results[i].isFinal) {
           const transcript = event.results[i][0].transcript
@@ -278,7 +278,7 @@ export function ScannerApp({ onLogout }: ScannerAppProps) {
       }
     }
 
-    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+    recognition.onerror = (event: any) => {
       if (event.error !== "aborted") {
         setVoiceError("No se pudo reconocer la voz. Intente nuevamente.")
       }

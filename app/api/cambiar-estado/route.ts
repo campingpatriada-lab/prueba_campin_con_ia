@@ -4,6 +4,7 @@ import {
   buscarPorPatenteServicio,
   cerrarEstadiaServicio,
 } from "@/lib/services/estadia.service"
+import { liberarFogonPorId } from "@/lib/repositories/fogon.repository"
 
 // POST: Cerrar estadia por patente (reemplaza la API externa)
 export async function POST(request: Request) {
@@ -33,6 +34,13 @@ export async function POST(request: Request) {
     // Cerrar la estadia
     const fechaSalida = new Date().toISOString().split("T")[0]
     await cerrarEstadiaServicio(estadia.id_estadia, fechaSalida)
+
+    // Liberar fogon si corresponde
+    if (estadia.id_fogon != null) {
+      try {
+        await liberarFogonPorId(Number(estadia.id_fogon))
+      } catch {}
+    }
 
     return NextResponse.json({
       exito: true,

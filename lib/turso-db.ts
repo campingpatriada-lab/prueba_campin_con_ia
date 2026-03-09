@@ -1,9 +1,11 @@
 import { createClient } from "@libsql/client"
 
-// Cliente de Turso para la base de datos compartida
+const TURSO_URL = process.env.URL_TURSO_DB ?? process.env.TURSO_DATABASE_URL
+const TURSO_TOKEN = process.env.TOKEN_TURSO_DB ?? process.env.TURSO_AUTH_TOKEN
+
 export const tursoClient = createClient({
-  url: process.env.URL_TURSO_DB!,
-  authToken: process.env.TOKEN_TURSO_DB!,
+  url: TURSO_URL!,
+  authToken: TURSO_TOKEN!,
 })
 
 // Nombre de la tabla para la configuracion
