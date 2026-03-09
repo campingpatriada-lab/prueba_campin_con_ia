@@ -12,8 +12,8 @@ export const metadata: Metadata = {
   description: 'Sistema de gestion de reservas, estadias e ingresos para camping',
   generator: 'v0.app',
   icons: {
-    icon: '/favicon.png',
-    apple: '/favicon.png',
+    icon: '/image.png',
+    apple: '/image.png',
   },
 }
 

@@ -67,7 +67,7 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
         <div className="flex flex-col items-center mb-8">
           <div className="w-28 h-28 rounded-full overflow-hidden mb-4 shadow-lg">
             <Image
-              src="/images/camping-logo.png"
+              src="/image.png"
               alt="Tently - Gestion de camping"
               width={112}
               height={112}
