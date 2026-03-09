@@ -169,6 +169,18 @@ export function ScannerApp({ onLogout }: ScannerAppProps) {
   const voiceRecognitionRef = useRef<any | null>(null)
   const [isVoiceListening, setIsVoiceListening] = useState(false)
   const [voiceError, setVoiceError] = useState<string | null>(null)
+  const [useGoogleVision, setUseGoogleVision] = useState<boolean>(false)
+  React.useEffect(() => {
+    const v = typeof window !== "undefined" ? window.localStorage.getItem("useGoogleVision") : null
+    setUseGoogleVision(v === "1")
+  }, [])
+  const toggleUseGoogleVision = () => {
+    const nv = !useGoogleVision
+    setUseGoogleVision(nv)
+    try {
+      window.localStorage.setItem("useGoogleVision", nv ? "1" : "0")
+    } catch {}
+  }
 
   // Normaliza el texto reconocido por voz para aproximarlo al formato de patente
   const normalizarPatente = (texto: string): string => {
@@ -563,7 +575,8 @@ export function ScannerApp({ onLogout }: ScannerAppProps) {
       const formData = new FormData()
       formData.append("imagen", selectedImage)
 
-      const res = await fetch("/api/scanner-image", {
+      const endpoint = useGoogleVision ? "/api/scanner-image-gvision" : "/api/scanner-image"
+      const res = await fetch(endpoint, {
         method: "POST",
         body: formData,
       })
@@ -859,6 +872,16 @@ export function ScannerApp({ onLogout }: ScannerAppProps) {
 
       {/* Main Content */}
       <main className="flex-1 min-h-0 overflow-y-auto flex flex-col items-center p-4 gap-6 max-w-lg mx-auto w-full">
+        <div className="w-full max-w-sm -mt-1">
+          <label className="flex items-center gap-2 text-xs bg-muted rounded-lg px-3 py-2 border border-border">
+            <input
+              type="checkbox"
+              checked={useGoogleVision}
+              onChange={toggleUseGoogleVision}
+            />
+            <span className="text-muted-foreground">Analizar foto por internet</span>
+          </label>
+        </div>
         {/* Status Display */}
         <div className="w-full max-w-sm">
           <StatusCard

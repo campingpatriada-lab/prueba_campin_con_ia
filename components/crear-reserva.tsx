@@ -90,6 +90,18 @@ export function CrearReserva() {
   const recognitionRef = useRef<any>(null)
   const [isListening, setIsListening] = useState(false)
   const [voiceError, setVoiceError] = useState<string | null>(null)
+  const [useGoogleVision, setUseGoogleVision] = useState<boolean>(false)
+  React.useEffect(() => {
+    const v = typeof window !== "undefined" ? window.localStorage.getItem("useGoogleVision") : null
+    setUseGoogleVision(v === "1")
+  }, [])
+  const toggleUseGoogleVision = () => {
+    const nv = !useGoogleVision
+    setUseGoogleVision(nv)
+    try {
+      window.localStorage.setItem("useGoogleVision", nv ? "1" : "0")
+    } catch {}
+  }
 
   // Normaliza el texto reconocido por voz para aproximarlo al formato de patente
   const normalizarPatente = (texto: string): string => {
@@ -324,7 +336,8 @@ export function CrearReserva() {
       const formDataUpload = new FormData()
       formDataUpload.append("imagen", optimized)
 
-      const res = await fetch("/api/scanner-image", {
+      const endpoint = useGoogleVision ? "/api/scanner-image-gvision" : "/api/scanner-image"
+      const res = await fetch(endpoint, {
         method: "POST",
         body: formDataUpload,
         signal: controller.signal,
@@ -478,6 +491,12 @@ export function CrearReserva() {
         <div className="flex items-center gap-2 mb-4">
           <PlusCircle className="w-5 h-5 text-primary" />
           <h2 className="text-lg font-semibold text-foreground">Crear Reserva</h2>
+        </div>
+        <div className="mb-3">
+          <label className="flex items-center gap-2 text-xs bg-muted rounded-lg px-3 py-2 border border-border w-fit">
+            <input type="checkbox" checked={useGoogleVision} onChange={toggleUseGoogleVision} />
+            <span className="text-muted-foreground">Analizar foto por internet</span>
+          </label>
         </div>
 
         <Card className="p-4 bg-card border-border">
