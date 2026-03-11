@@ -872,11 +872,12 @@ export function ScannerApp({ onLogout }: ScannerAppProps) {
       )}
 
       {/* Main Content */}
-      <main className="flex-1 min-h-0 overflow-y-auto flex flex-col items-center p-3 gap-4 max-w-lg mx-auto w-full">
+      <main className="flex-1 min-h-0 overflow-y-auto flex flex-col items-center p-3 gap-3 max-w-lg mx-auto w-full">
         <div className="w-full max-w-sm -mt-1">
-          <div className="flex items-center justify-between bg-muted rounded-lg px-3 py-2 border border-border">
-            <span className="text-xs text-muted-foreground">Análisis online</span>
+          <div className="flex items-center justify-between gap-3 text-xs bg-muted rounded-lg px-2 py-1.5 border border-border w-fit">
+            <span className="text-muted-foreground">Análisis online</span>
             <Switch
+              className="scale-90"
               checked={useGoogleVision}
               onCheckedChange={(checked) => {
                 setUseGoogleVision(checked)
