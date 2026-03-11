@@ -758,10 +758,11 @@ function EstadiaCard({ estadia, onUpdated }: { estadia: Estadia; onUpdated: () =
             <DataRow icon={<Tent className="w-4 h-4" />} label="Tipo" value={estadia.tipo_estadia || "---"} />
             <DataRow icon={<UserCheck className="w-4 h-4" />} label="Empleado" value={estadia.nombre_empleado || "---"} />
           </div>
-
-          <DataRow icon={<Activity className="w-4 h-4" />} label="Estado" value={estadia.estado === 1 ? "Activa" : "Finalizada"} />
-
-          <DataRow icon={<CalendarDays className="w-4 h-4" />} label="Cantidad de dias" value={cantidadDias} />
+          
+          <div className="grid grid-cols-2 gap-3">
+            <DataRow icon={<Activity className="w-4 h-4" />} label="Estado" value={estadia.estado === 1 ? "Activa" : "Finalizada"} />
+            <DataRow icon={<CalendarDays className="w-4 h-4" />} label="Cantidad de dias" value={cantidadDias} />
+          </div>
 
           {estadia.observaciones && (
             <div className="p-2 rounded-lg bg-muted/30">
