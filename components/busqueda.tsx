@@ -150,12 +150,23 @@ export function Busqueda() {
       for (let i = event.resultIndex; i < event.results.length; i++) {
         if (event.results[i].isFinal) {
           const raw = event.results[i][0].transcript.trim()
-          const valor = searchType === "patente" ? normalizarPatente(raw) : raw
+          let valor: string
+          if (searchType === "patente") {
+            valor = normalizarPatente(raw)
+          } else if (searchType === "dni") {
+            valor = raw.replace(/\s+/g, "")
+          } else {
+            valor = raw
+          }
           if (valor.length > 0) {
             setSearchValue(valor)
             setVoiceError(null)
             voiceRef.current?.stop()
             setIsListening(false)
+            // Ejecutar busqueda automaticamente
+            setTimeout(() => {
+              handleSearch(valor)
+            }, 0)
           }
         }
       }
@@ -175,8 +186,9 @@ export function Busqueda() {
     setIsListening(true)
   }
 
-  const handleSearch = async () => {
-    if (!searchValue.trim()) return
+  const handleSearch = async (valorOverride?: string) => {
+    const valorBase = valorOverride ?? searchValue
+    if (!valorBase.trim()) return
 
     setIsLoading(true)
     setError(null)
@@ -190,7 +202,10 @@ export function Busqueda() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           tipo: searchType,
-          valor: searchType === "patente" ? searchValue.trim().toUpperCase() : searchValue.trim(),
+          valor:
+            searchType === "patente"
+              ? valorBase.trim().toUpperCase()
+              : valorBase.trim(),
         }),
       })
 
@@ -298,7 +313,7 @@ export function Busqueda() {
               >
                 {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
               </Button>
-              <Button onClick={handleSearch} disabled={!searchValue.trim() || isLoading} className="px-4">
+              <Button onClick={() => handleSearch()} disabled={!searchValue.trim() || isLoading} className="px-4">
                 {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
               </Button>
             </div>
