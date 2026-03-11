@@ -14,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
 import { Loader2, CheckCircle2, AlertCircle, PlusCircle, Camera, Trash2, Plus, ChevronDown, ChevronUp, TriangleAlert, Mic, MicOff } from "lucide-react"
 import { fechaHoyArgentina, cn } from "@/lib/utils"
 import { optimizarImagen } from "@/lib/optimizar-imagen"
@@ -493,10 +494,20 @@ export function CrearReserva() {
           <h2 className="text-lg font-semibold text-foreground">Crear Reserva</h2>
         </div>
         <div className="mb-3">
-          <label className="flex items-center gap-2 text-xs bg-muted rounded-lg px-3 py-2 border border-border w-fit">
-            <input type="checkbox" checked={useGoogleVision} onChange={toggleUseGoogleVision} />
-            <span className="text-muted-foreground">Analizar foto por internet</span>
-          </label>
+          <div className="flex items-center justify-between gap-3 text-xs bg-muted rounded-lg px-2 py-1.5 border border-border w-fit">
+            <span className="text-muted-foreground">Análisis online</span>
+            <Switch
+              className="scale-90"
+              checked={useGoogleVision}
+              onCheckedChange={(checked) => {
+                setUseGoogleVision(checked)
+                try {
+                  window.localStorage.setItem("useGoogleVision", checked ? "1" : "0")
+                } catch {}
+              }}
+              aria-label="Activar análisis online"
+            />
+          </div>
         </div>
 
         <Card className="p-4 bg-card border-border">
