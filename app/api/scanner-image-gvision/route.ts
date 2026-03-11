@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import { validarAutenticado } from "@/lib/auth"
 import { buscarPorPatenteServicio } from "@/lib/services/estadia.service"
 
+export const runtime = "nodejs"
+
 function detectarPatente(texto: string): string | null {
   const upper = texto.toUpperCase()
   const merged = upper.replace(/[^A-Z0-9]/g, " ")
@@ -25,7 +27,11 @@ function detectarPatente(texto: string): string | null {
 export async function POST(request: Request) {
   try {
     await validarAutenticado()
-    const apiKey = process.env.GOOGLE_VISION || ""
+    const apiKey =
+      process.env.GOOGLE_VISION ||
+      process.env.GOOGLE_API_KEY ||
+      process.env.VISION_API_KEY ||
+      ""
     if (!apiKey) {
       return NextResponse.json({ exito: false, mensaje: "GOOGLE_VISION no configurado" }, { status: 500 })
     }

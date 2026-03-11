@@ -43,6 +43,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
 import { cn, fechaHoyArgentina } from "@/lib/utils"
 import { optimizarImagen } from "@/lib/optimizar-imagen"
 
@@ -873,14 +874,19 @@ export function ScannerApp({ onLogout }: ScannerAppProps) {
       {/* Main Content */}
       <main className="flex-1 min-h-0 overflow-y-auto flex flex-col items-center p-3 gap-4 max-w-lg mx-auto w-full">
         <div className="w-full max-w-sm -mt-1">
-          <label className="flex items-center gap-2 text-xs bg-muted rounded-lg px-3 py-2 border border-border">
-            <input
-              type="checkbox"
+          <div className="flex items-center justify-between bg-muted rounded-lg px-3 py-2 border border-border">
+            <span className="text-xs text-muted-foreground">Análisis online</span>
+            <Switch
               checked={useGoogleVision}
-              onChange={toggleUseGoogleVision}
+              onCheckedChange={(checked) => {
+                setUseGoogleVision(checked)
+                try {
+                  window.localStorage.setItem("useGoogleVision", checked ? "1" : "0")
+                } catch {}
+              }}
+              aria-label="Activar análisis online"
             />
-            <span className="text-muted-foreground">Análisis online</span>
-          </label>
+          </div>
         </div>
         {/* Status Display */}
         <div className="w-full max-w-sm">
