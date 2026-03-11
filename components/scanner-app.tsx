@@ -871,7 +871,7 @@ export function ScannerApp({ onLogout }: ScannerAppProps) {
       )}
 
       {/* Main Content */}
-      <main className="flex-1 min-h-0 overflow-y-auto flex flex-col items-center p-4 gap-6 max-w-lg mx-auto w-full">
+      <main className="flex-1 min-h-0 overflow-y-auto flex flex-col items-center p-3 gap-4 max-w-lg mx-auto w-full">
         <div className="w-full max-w-sm -mt-1">
           <label className="flex items-center gap-2 text-xs bg-muted rounded-lg px-3 py-2 border border-border">
             <input
@@ -879,7 +879,7 @@ export function ScannerApp({ onLogout }: ScannerAppProps) {
               checked={useGoogleVision}
               onChange={toggleUseGoogleVision}
             />
-            <span className="text-muted-foreground">Analizar foto por internet</span>
+            <span className="text-muted-foreground">Análisis online</span>
           </label>
         </div>
         {/* Status Display */}
