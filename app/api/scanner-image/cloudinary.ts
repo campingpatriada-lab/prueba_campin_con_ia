@@ -192,7 +192,7 @@ async function optimizarBuffer(buffer: Buffer): Promise<Buffer> {
   return await sharp(buffer)
     .rotate()                    // respeta orientación EXIF
     .resize({ width: 1200 })     // ancho máximo
-    .jpeg({ quality: 58 })       // comprime a 60% calidad
+    .jpeg({ quality: 80 })       // comprime a 80% calidad
     .toBuffer();
 }
 
