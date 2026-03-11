@@ -140,6 +140,7 @@ export function Busqueda() {
     }
 
     setVoiceError(null)
+    setSearchValue("")
     const recognition = new AudioInput()
     recognition.lang = "es-AR"
     recognition.interimResults = false
