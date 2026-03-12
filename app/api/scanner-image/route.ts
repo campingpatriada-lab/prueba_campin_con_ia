@@ -78,6 +78,8 @@ export async function POST(request: Request) {
     const urlImagen = resultadoLocal.secure_url
     publicId = resultadoLocal.public_id
 
+    console.log("Enviando URL a API Escritorio:", urlImagen);
+
     // 4. Detectar patente (API ESCRITORIO)
     const resApiEscritorio = await fetch(
       `${apiUrl}/detectarPatenteEnFoto`,

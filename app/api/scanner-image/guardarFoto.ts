@@ -39,7 +39,12 @@ export class GuardarFotoServicio {
 
       // 5. Construir URL de API dedicada (detectando el origen real)
       const urlObj = new URL(request.url);
+      
+      // Intentamos usar el origen del request o reconstruirlo
       const secure_url = `${urlObj.origin}/api/temp-image/${fileName}`;
+      
+      console.log("GuardarFotoServicio - Archivo guardado en:", filePath);
+      console.log("GuardarFotoServicio - URL generada para API:", secure_url);
 
       return {
         secure_url,
