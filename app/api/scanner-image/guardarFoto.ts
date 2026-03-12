@@ -37,13 +37,9 @@ export class GuardarFotoServicio {
       // 4. Guardar archivo
       fs.writeFileSync(filePath, optimizedBuffer);
 
-      // 5. Construir URL pública (detectando el protocolo real del request)
-      const host = request.headers.get("host");
+      // 5. Construir URL de API dedicada (detectando el origen real)
       const urlObj = new URL(request.url);
-      const protocol = urlObj.protocol; // "http:" o "https:"
-      
-      // Construimos la URL quitando los dos puntos del protocolo
-      const secure_url = `${protocol}//${host}/temp/${fileName}`;
+      const secure_url = `${urlObj.origin}/api/temp-image/${fileName}`;
 
       return {
         secure_url,
