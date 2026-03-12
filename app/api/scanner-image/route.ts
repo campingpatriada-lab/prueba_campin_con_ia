@@ -3,7 +3,10 @@ import { getSharedUrl, initConfigTable } from "@/lib/turso-db"
 import { validarAutenticado } from "@/lib/auth"
 import { buscarPorPatenteServicio } from "@/lib/services/estadia.service"
 import jwt from "jsonwebtoken"
-import { CloudinaryServicio } from "./cloudinary"
+import fs from "fs"
+import path from "path"
+import crypto from "crypto"
+import sharp from "sharp"
 
 const jwt_secreta = process.env.JWT_SECRET || ""
 
@@ -14,8 +17,17 @@ const loginPrueba = {
 
 const JWT_TEMPORAL = jwt_secreta ? jwt.sign(loginPrueba, jwt_secreta) : ""
 
+// Función para optimizar buffer antes de guardar
+async function optimizarBuffer(buffer: Buffer): Promise<Buffer> {
+  return await sharp(buffer)
+    .rotate()                    // respeta orientación EXIF
+    .resize({ width: 1200 })     // ancho máximo
+    .jpeg({ quality: 70 })       // comprime
+    .toBuffer();
+}
+
 export async function POST(request: Request) {
-  let publicId: string | null = null
+  let tempFilePath: string | null = null
 
   try {
     await validarAutenticado()
@@ -68,15 +80,26 @@ export async function POST(request: Request) {
       )
     }
 
-    // 3. Subir imagen a Cloudinary
+    // 3. Procesar y guardar imagen localmente
     const arrayBuffer = await imagen.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
+    const optimizedBuffer = await optimizarBuffer(buffer)
 
-    const resultadoCloud =
-      await CloudinaryServicio.subirImagenBuffer(buffer)
+    // Crear carpeta temp si no existe
+    const tempDir = path.join(process.cwd(), "public", "temp")
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true })
+    }
 
-    const urlImagen = resultadoCloud.secure_url
-    publicId = resultadoCloud.public_id
+    // Nombre de archivo único
+    const fileName = `${crypto.randomBytes(16).toString("hex")}.jpg`
+    tempFilePath = path.join(tempDir, fileName)
+    fs.writeFileSync(tempFilePath, optimizedBuffer)
+
+    // Determinar URL pública del archivo temporal
+    const host = request.headers.get("host")
+    const protocol = host?.includes("localhost") ? "http" : "https"
+    const urlImagen = `${protocol}://${host}/temp/${fileName}`
 
     // 4. Detectar patente (API ESCRITORIO)
     const resApiEscritorio = await fetch(
@@ -170,12 +193,12 @@ export async function POST(request: Request) {
       { status: 500 }
     )
   } finally {
-    // 5️⃣ Eliminar imagen de Cloudinary SIEMPRE
-    if (publicId) {
+    // 5️⃣ Eliminar imagen temporal local SIEMPRE
+    if (tempFilePath && fs.existsSync(tempFilePath)) {
       try {
-        await CloudinaryServicio.eliminarImagen(publicId)
+        fs.unlinkSync(tempFilePath)
       } catch (e) {
-        console.error("Error eliminando imagen:", e)
+        console.error("Error eliminando archivo temporal:", e)
       }
     }
   }
