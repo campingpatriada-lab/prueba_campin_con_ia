@@ -3,10 +3,7 @@ import { getSharedUrl, initConfigTable } from "@/lib/turso-db"
 import { validarAutenticado } from "@/lib/auth"
 import { buscarPorPatenteServicio } from "@/lib/services/estadia.service"
 import jwt from "jsonwebtoken"
-import fs from "fs"
-import path from "path"
-import crypto from "crypto"
-import sharp from "sharp"
+import { GuardarFotoServicio } from "./guardarFoto"
 
 const jwt_secreta = process.env.JWT_SECRET || ""
 
@@ -17,17 +14,8 @@ const loginPrueba = {
 
 const JWT_TEMPORAL = jwt_secreta ? jwt.sign(loginPrueba, jwt_secreta) : ""
 
-// Función para optimizar buffer antes de guardar
-async function optimizarBuffer(buffer: Buffer): Promise<Buffer> {
-  return await sharp(buffer)
-    .rotate()                    // respeta orientación EXIF
-    .resize({ width: 1200 })     // ancho máximo
-    .jpeg({ quality: 70 })       // comprime
-    .toBuffer();
-}
-
 export async function POST(request: Request) {
-  let tempFilePath: string | null = null
+  let publicId: string | null = null
 
   try {
     await validarAutenticado()
@@ -80,26 +68,15 @@ export async function POST(request: Request) {
       )
     }
 
-    // 3. Procesar y guardar imagen localmente
+    // 3. Guardar imagen temporalmente en el servidor
     const arrayBuffer = await imagen.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
-    const optimizedBuffer = await optimizarBuffer(buffer)
 
-    // Crear carpeta temp si no existe
-    const tempDir = path.join(process.cwd(), "public", "temp")
-    if (!fs.existsSync(tempDir)) {
-      fs.mkdirSync(tempDir, { recursive: true })
-    }
+    const resultadoLocal =
+      await GuardarFotoServicio.guardarImagenBuffer(buffer, request)
 
-    // Nombre de archivo único
-    const fileName = `${crypto.randomBytes(16).toString("hex")}.jpg`
-    tempFilePath = path.join(tempDir, fileName)
-    fs.writeFileSync(tempFilePath, optimizedBuffer)
-
-    // Determinar URL pública del archivo temporal
-    const host = request.headers.get("host")
-    const protocol = host?.includes("localhost") ? "http" : "https"
-    const urlImagen = `${protocol}://${host}/temp/${fileName}`
+    const urlImagen = resultadoLocal.secure_url
+    publicId = resultadoLocal.public_id
 
     // 4. Detectar patente (API ESCRITORIO)
     const resApiEscritorio = await fetch(
@@ -193,332 +170,13 @@ export async function POST(request: Request) {
       { status: 500 }
     )
   } finally {
-    // 5️⃣ Eliminar imagen temporal local SIEMPRE
-    if (tempFilePath && fs.existsSync(tempFilePath)) {
+    // 5️⃣ Eliminar imagen temporal del servidor SIEMPRE
+    if (publicId) {
       try {
-        fs.unlinkSync(tempFilePath)
+        await GuardarFotoServicio.eliminarImagen(publicId)
       } catch (e) {
-        console.error("Error eliminando archivo temporal:", e)
+        console.error("Error eliminando foto temporal:", e)
       }
     }
   }
 }
-
-
-
-// import { NextResponse } from "next/server"
-// import { getSharedUrl, initConfigTable } from "@/lib/turso-db"
-// import jwt from "jsonwebtoken";
-
-// const subirImagenApi = "https://api-fotos-campig.onrender.com/api/subirImagen";
-// const eliminarImagen="https://api-fotos-campig.onrender.com/api/eliminarImagen"
-
-// const loginPrueba = {
-//   usuario: "Admin",
-//   id: 20,
-// }
-
-// const jwt_secreta = process.env.JWT_SECRET || ""
-
-
-// const JWT_TEMPORAL = jwt.sign(loginPrueba, jwt_secreta);
-
-// export async function POST(request: Request) {
-//   try {
-//     if (jwt_secreta==""){
-//         return NextResponse.json(
-//         { exito: false, mensaje: "token vacio" },
-//         { status: 400 }
-//       )
-
-//     }
-//     // 1️⃣ FormData
-//     const formData = await request.formData()
-//     const imagen = formData.get("imagen")
-
-//     if (!imagen || !(imagen instanceof File)) {
-//       return NextResponse.json(
-//         { exito: false, mensaje: "No se envió ninguna imagen" },
-//         { status: 400 }
-//       )
-//     }
-
-//     // 2️⃣ Config DB
-//     await initConfigTable()
-//     const apiUrl = await getSharedUrl()
-
-//     if (!apiUrl) {
-//       return NextResponse.json(
-//         { exito: false, mensaje: "URL del servidor no configurada" },
-//         { status: 404 }
-//       )
-//     }
-
-//     // 3️⃣ Subir imagen
-//     const externalFormData = new FormData()
-//     externalFormData.append("imagen", imagen)
-
-//     const resApiFoto = await fetch(subirImagenApi, {
-//       method: "POST",
-//       headers: {
-//         Authorization: `Bearer ${JWT_TEMPORAL}`,
-//       },
-//       body: externalFormData,
-//     })
-
-//     if (!resApiFoto.ok) {
-//       const text = await resApiFoto.text()
-//       return NextResponse.json(
-//         { exito: false, mensaje: "Error subiendo imagen", error: text },
-//         { status: resApiFoto.status }
-//       )
-//     }
-
-//     const resApiImagen = await resApiFoto.json()
-
-//     if (!resApiImagen.exito) {
-//       return NextResponse.json(
-//         { exito: false, mensaje: "No se pudo generar la URL" },
-//         { status: 500 }
-//       )
-//     }
-
-//     // 4️⃣ Detectar patente
-//     const resApiEscritorio = await fetch(`${apiUrl}/detectarPatente`, {
-//       method: "POST",
-//       headers: {
-//         "Content-Type": "application/json",
-//       },
-//       body: JSON.stringify({
-//         url: resApiImagen.datos.url,
-//       }),
-//     })
-
-//     if (!resApiEscritorio.ok) {
-//       const text = await resApiEscritorio.text()
-//       return NextResponse.json(
-//         { exito: false, mensaje: "Error en detección", error: text },
-//         { status: resApiEscritorio.status }
-//       )
-//     }
-//     console.log("ago mas")
-//     const resApiEsc = await resApiEscritorio.json()
-
-//     // 5️⃣ RESPUESTA LIMPIA (React-friendly)
-//     return NextResponse.json(
-//       {
-//         exito: true,
-//         datos: resApiEsc.patente,
-//       },
-//       { status: 200 }
-//     )
-
-//   } catch (err) {
-//     console.error("Error en proxy /recibirImagen:", err)
-//     return NextResponse.json(
-//       {
-//         exito: false,
-//         mensaje: "Error interno del servidor",
-//         error: err instanceof Error ? err.message : String(err),
-//       },
-//       { status: 500 }
-//     )
-//   }
-// }
-
-
-
-
-
-// // //NO BORRAR FUNCIONAL au no :
-
-// // import { NextResponse } from "next/server"
-// // import { getSharedUrl, initConfigTable } from "@/lib/turso-db"
-// // import jwt from "jsonwebtoken";
-
-
-// // //url api
-// // const subirImagenApi="https://api-fotos-campig.onrender.com/api/subirImagen";
-// // const eliminarImagenApi="https://api-fotos-campig.onrender.com/api/eliminarImagen";
-// // const loginPrueba={
-// //   usuario: "Admin",
-// //   id: 20,
-// // }
-
-
-// // async function  pureba(){
-// //    const uno=await getSharedUrl();
-// //    const dos=await initConfigTable();
-// //    console.log(uno,dos);
-// // }
-
-
-// // const jwt_secreta= process.env.JWT_SECRET||"";
-
-
-// // const JWT_TEMPORAL = jwt.sign(loginPrueba, jwt_secreta, {
-// //   expiresIn: "1h",
-// // });
-
-// // // Proxy para /recibirImagen (busqueda por foto)
-// // export async function POST(request: Request) {
-// //   await pureba();
-// //   try {
-// //     // Obtener el FormData del request
-// //     const formData = await request.formData()
-// //     const imagen = formData.get("imagen")
-
-// //     if (!imagen || !(imagen instanceof File)) {
-// //       return NextResponse.json(
-// //         { exito: false, mensaje: "No se envió ninguna imagen" },
-// //         { status: 400 }
-// //       )
-// //     }
-
-// //     // Inicializar tabla si no existe
-// //     await initConfigTable()
-
-// //     // Obtener URL desde Turso DB
-// //     const apiUrl = await getSharedUrl()
-
-// //     if (!apiUrl) {
-// //       return NextResponse.json(
-// //         { exito: false, mensaje: "URL del servidor no configurada" },
-// //         { status: 404 }
-// //       )
-// //     }
-
-// //     // Crear nuevo FormData para enviar al servidor externo
-// //     const externalFormData = new FormData()
-// //     externalFormData.append("imagen", imagen)
-
-// //     // Hacer la peticion al servidor externo sube la foto a cloudinary
-// //     const resApiFoto = await fetch(subirImagenApi, {
-// //       method: "POST",
-// //       headers:{
-// //         'Authorization': 'Bearer '+JWT_TEMPORAL
-// //       },
-// //       body: externalFormData,
-// //     })
-// //     const resApiImagen= await resApiFoto.json();
-// //     if (!resApiImagen.exito){
-// //       return NextResponse.json({exito:false,mensaje:"No se pudo subir generar la url"})
-// //     }
-// //     //mandar imagen a api externa {apiUrl}/detectarPatente
-// //     const objParaEnviar={
-// //       url:resApiImagen.datos.url
-// //     }
-// //     const resApiEscritorio= await fetch(`${apiUrl}/detectarPatente`,{
-// //       method:"POST",
-// //       body:JSON.stringify(objParaEnviar)
-// //     });
-// //     const resApiEsc=await resApiEscritorio.json();
-    
-// //     // // Verificar si la respuesta es JSON antes de parsear
-// //     // const contentType = resApiEsc.headers.get("content-type")
-// //     // if (!contentType || !contentType.includes("application/json")) {
-// //     //   // El servidor devolvio algo que no es JSON (ej: error en texto plano)
-// //     //   const textResponse = await resApiEsc.text()
-// //     //   console.error("[v0] Respuesta no-JSON del servidor:", textResponse)
-// //     //   return NextResponse.json(
-// //     //     {
-// //     //       exito: false,
-// //     //       mensaje: "Error del servidor externo",
-// //     //       error: textResponse || `HTTP ${resApiEsc.status}`,
-// //     //     },
-// //     //     { status: resApiEsc.status }
-// //     //   )
-// //     // }
-// //     // Devolver la respuesta del servidor
-// //     return NextResponse.json(resApiEsc, { status: resApiEscritorio.status })
-// //   } catch (error) {
-// //     console.error("Error en proxy /recibirImagen:", error)
-// //     return NextResponse.json(
-// //       {
-// //         exito: false,
-// //         mensaje: "Error al conectar con el servidor de escaneo",
-// //         // error: error instanceof Error ? error.message : "Error desconocido",
-// //         error:error
-// //       },
-// //       { status: 500 }
-// //     )
-// //   }
-// // }
-
-
-
-
-
-// // //NO BORRAR FUNCIONAL:
-// // import { NextResponse } from "next/server"
-// // import { getSharedUrl, initConfigTable } from "@/lib/turso-db"
-
-// // // Proxy para /recibirImagen (busqueda por foto)
-// // export async function POST(request: Request) {
-// //   try {
-// //     // Obtener el FormData del request
-// //     const formData = await request.formData()
-// //     const imagen = formData.get("imagen")
-
-// //     if (!imagen || !(imagen instanceof File)) {
-// //       return NextResponse.json(
-// //         { exito: false, mensaje: "No se envió ninguna imagen" },
-// //         { status: 400 }
-// //       )
-// //     }
-
-// //     // Inicializar tabla si no existe
-// //     await initConfigTable()
-
-// //     // Obtener URL desde Turso DB
-// //     const apiUrl = await getSharedUrl()
-
-// //     if (!apiUrl) {
-// //       return NextResponse.json(
-// //         { exito: false, mensaje: "URL del servidor no configurada" },
-// //         { status: 404 }
-// //       )
-// //     }
-
-// //     // Crear nuevo FormData para enviar al servidor externo
-// //     const externalFormData = new FormData()
-// //     externalFormData.append("imagen", imagen)
-
-// //     // Hacer la peticion al servidor externo
-// //     const res = await fetch(`${apiUrl}/recibirImagen`, {
-// //       method: "POST",
-// //       body: externalFormData,
-// //     })
-
-// //     // Verificar si la respuesta es JSON antes de parsear
-// //     const contentType = res.headers.get("content-type")
-// //     if (!contentType || !contentType.includes("application/json")) {
-// //       // El servidor devolvio algo que no es JSON (ej: error en texto plano)
-// //       const textResponse = await res.text()
-// //       console.error("[v0] Respuesta no-JSON del servidor:", textResponse)
-// //       return NextResponse.json(
-// //         {
-// //           exito: false,
-// //           mensaje: "Error del servidor externo",
-// //           error: textResponse || `HTTP ${res.status}`,
-// //         },
-// //         { status: res.status }
-// //       )
-// //     }
-
-// //     const data = await res.json()
-
-// //     // Devolver la respuesta del servidor
-// //     return NextResponse.json(data, { status: res.status })
-// //   } catch (error) {
-// //     console.error("Error en proxy /recibirImagen:", error)
-// //     return NextResponse.json(
-// //       {
-// //         exito: false,
-// //         mensaje: "Error al conectar con el servidor de escaneo",
-// //         error: error instanceof Error ? error.message : "Error desconocido",
-// //       },
-// //       { status: 500 }
-// //     )
-// //   }
-// // }
