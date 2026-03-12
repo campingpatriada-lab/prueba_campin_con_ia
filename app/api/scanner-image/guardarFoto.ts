@@ -20,11 +20,15 @@ export class GuardarFotoServicio {
       const fileName = `${crypto.randomBytes(8).toString("hex")}.jpg`;
       const filePath = path.join(TEMP_DIR, fileName);
 
-      // 3. Optimizar y rotar (COMPATIBILIDAD CELULARES)
+      // 3. Optimizar y rotar (COMPATIBILIDAD CELULARES + ALTA COMPRESIÓN)
       await sharp(buffer)
         .rotate() // Corrige rotación de celular
-        .resize({ width: 1200, withoutEnlargement: true })
-        .jpeg({ quality: 75 })
+        .resize({ width: 1024, withoutEnlargement: true }) // Reducido a 1024px (suficiente para OCR)
+        .jpeg({ 
+          quality: 60,           // Calidad optimizada para peso bajo
+          mozjpeg: true,         // Algoritmo de compresión superior
+          chromaSubsampling: '4:4:4' // Mantiene bordes nítidos para OCR
+        })
         .toFile(filePath);
 
       // 4. Generar URL de API (Next.js no sirve /public/temp en tiempo real sin recargar)
