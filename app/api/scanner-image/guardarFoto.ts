@@ -27,12 +27,13 @@ export class GuardarFotoServicio {
         .jpeg({ quality: 75 })
         .toFile(filePath);
 
-      // 4. Generar URL simple basada en el host del navegador
+      // 4. Generar URL de API (Next.js no sirve /public/temp en tiempo real sin recargar)
       const host = request.headers.get("host");
-      const protocol = host?.includes("localhost") ? "http" : "https";
-      const secure_url = `${protocol}://${host}/temp/${fileName}`;
+      const urlObj = new URL(request.url);
+      const protocol = urlObj.protocol;
+      const secure_url = `${protocol}//${host}/api/temp-image/${fileName}`;
 
-      console.log("URL generada para la API de escritorio:", secure_url);
+      console.log("URL para API Escritorio:", secure_url);
 
       return { secure_url, public_id: fileName };
     } catch (error: any) {
