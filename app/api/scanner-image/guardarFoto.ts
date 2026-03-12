@@ -37,10 +37,13 @@ export class GuardarFotoServicio {
       // 4. Guardar archivo
       fs.writeFileSync(filePath, optimizedBuffer);
 
-      // 5. Construir URL pública
+      // 5. Construir URL pública (detectando el protocolo real del request)
       const host = request.headers.get("host");
-      const protocol = host?.includes("localhost") ? "http" : "https";
-      const secure_url = `${protocol}://${host}/temp/${fileName}`;
+      const urlObj = new URL(request.url);
+      const protocol = urlObj.protocol; // "http:" o "https:"
+      
+      // Construimos la URL quitando los dos puntos del protocolo
+      const secure_url = `${protocol}//${host}/temp/${fileName}`;
 
       return {
         secure_url,
