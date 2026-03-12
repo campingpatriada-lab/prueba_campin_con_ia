@@ -6,8 +6,8 @@
  */
 export function optimizarImagen(
   file: File,
-  maxDimension = 1280,
-  quality = 0.65
+  maxDimension = 800,
+  quality = 0.5
 ): Promise<File> {
   return new Promise((resolve, reject) => {
     // createObjectURL es ~10x mas rapido que readAsDataURL para archivos grandes

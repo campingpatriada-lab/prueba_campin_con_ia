@@ -20,14 +20,13 @@ export class GuardarFotoServicio {
       const fileName = `${crypto.randomBytes(8).toString("hex")}.jpg`;
       const filePath = path.join(TEMP_DIR, fileName);
 
-      // 3. Optimizar y rotar (COMPATIBILIDAD CELULARES + ALTA COMPRESIÓN)
+      // 3. Optimizar y rotar (MAXIMA RAPIDEZ)
       await sharp(buffer)
         .rotate() // Corrige rotación de celular
-        .resize({ width: 1024, withoutEnlargement: true }) // Reducido a 1024px (suficiente para OCR)
+        .resize({ width: 800, withoutEnlargement: true }) // Reducido a 800px para máxima rapidez
         .jpeg({ 
-          quality: 60,           // Calidad optimizada para peso bajo
-          mozjpeg: true,         // Algoritmo de compresión superior
-          chromaSubsampling: '4:4:4' // Mantiene bordes nítidos para OCR
+          quality: 55,           // Calidad balanceada para velocidad
+          progressive: false,    // Más rápido de codificar
         })
         .toFile(filePath);
 
